@@ -1,0 +1,37 @@
+# =========================================
+# AUTHENTICATION - DO NOT COMMIT ACTUAL VALUES
+# Use Azure DevOps Variable Groups instead
+# =========================================
+
+# These values will be passed from Azure DevOps pipeline
+# subscription_id = "your-azure-subscription-id"
+# client_id       = "your-service-principal-client-id"
+# client_secret   = "your-service-principal-secret"
+# tenant_id       = "your-azure-tenant-id"
+# admin_password  = "your-secure-vm-password"
+
+# =========================================
+# GENERAL CONFIGURATION
+# =========================================
+
+environment   = "nprd"
+location      = "centralindia"
+location_short = "cin"
+
+# =========================================
+# VM CONFIGURATION
+# =========================================
+
+vm_size           = "Standard_B2pts_v2"
+vm_admin_username = "azureuser"
+
+# =========================================
+# TAGS
+# =========================================
+
+tags = {
+  Project     = "ACC-23377-AZURE-NPRD-AICAP"
+  ManagedBy   = "Terraform"
+  Environment = "Non-Production"
+  DeployedBy  = "AzureDevOps"
+}

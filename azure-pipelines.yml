@@ -1,0 +1,235 @@
+trigger:
+  branches:
+    include:
+      - main
+      - develop
+  paths:
+    include:
+      - '*.tf'
+      - 'azure-pipelines.yml'
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+  - group: ACC-23377-AZURE-NPRD-AICAP
+  - name: terraformVersion
+    value: '1.6.5'
+  - name: workingDirectory
+    value: '$(System.DefaultWorkingDirectory)'
+
+stages:
+  - stage: Validate
+    displayName: 'Terraform Validate'
+    jobs:
+      - job: Validate
+        displayName: 'Validate Terraform Configuration'
+        steps:
+          - task: TerraformInstaller@0
+            displayName: 'Install Terraform'
+            inputs:
+              terraformVersion: $(terraformVersion)
+
+          - task: TerraformTaskV4@4
+            displayName: 'Terraform Init'
+            inputs:
+              provider: 'azurerm'
+              command: 'init'
+              workingDirectory: '$(workingDirectory)'
+              backendServiceArm: 'Azure-Service-Connection'
+              backendAzureRmResourceGroupName: 'rg-terraform-state'
+              backendAzureRmStorageAccountName: 'sttfstate$(Build.BuildId)'
+              backendAzureRmContainerName: 'tfstate'
+              backendAzureRmKey: 'terraform.tfstate'
+            env:
+              ARM_CLIENT_ID: $(ARM_CLIENT_ID)
+              ARM_CLIENT_SECRET: $(ARM_CLIENT_SECRET)
+              ARM_SUBSCRIPTION_ID: $(ARM_SUBSCRIPTION_ID)
+              ARM_TENANT_ID: $(ARM_TENANT_ID)
+
+          - task: TerraformTaskV4@4
+            displayName: 'Terraform Validate'
+            inputs:
+              provider: 'azurerm'
+              command: 'validate'
+              workingDirectory: '$(workingDirectory)'
+
+          - task: TerraformTaskV4@4
+            displayName: 'Terraform Format Check'
+            inputs:
+              provider: 'azurerm'
+              command: 'custom'
+              workingDirectory: '$(workingDirectory)'
+              customCommand: 'fmt'
+              commandOptions: '-check -recursive'
+            continueOnError: true
+
+  - stage: Plan
+    displayName: 'Terraform Plan'
+    dependsOn: Validate
+    condition: succeeded()
+    jobs:
+      - job: Plan
+        displayName: 'Generate Terraform Plan'
+        steps:
+          - task: TerraformInstaller@0
+            displayName: 'Install Terraform'
+            inputs:
+              terraformVersion: $(terraformVersion)
+
+          - task: TerraformTaskV4@4
+            displayName: 'Terraform Init'
+            inputs:
+              provider: 'azurerm'
+              command: 'init'
+              workingDirectory: '$(workingDirectory)'
+              backendServiceArm: 'Azure-Service-Connection'
+              backendAzureRmResourceGroupName: 'rg-terraform-state'
+              backendAzureRmStorageAccountName: 'sttfstate$(Build.BuildId)'
+              backendAzureRmContainerName: 'tfstate'
+              backendAzureRmKey: 'terraform.tfstate'
+            env:
+              ARM_CLIENT_ID: $(ARM_CLIENT_ID)
+              ARM_CLIENT_SECRET: $(ARM_CLIENT_SECRET)
+              ARM_SUBSCRIPTION_ID: $(ARM_SUBSCRIPTION_ID)
+              ARM_TENANT_ID: $(ARM_TENANT_ID)
+
+          - task: TerraformTaskV4@4
+            displayName: 'Terraform Plan'
+            inputs:
+              provider: 'azurerm'
+              command: 'plan'
+              workingDirectory: '$(workingDirectory)'
+              commandOptions: |
+                -var="subscription_id=$(ARM_SUBSCRIPTION_ID)" \
+                -var="client_id=$(ARM_CLIENT_ID)" \
+                -var="client_secret=$(ARM_CLIENT_SECRET)" \
+                -var="tenant_id=$(ARM_TENANT_ID)" \
+                -var="admin_password=$(admin_password)" \
+                -out=tfplan
+              environmentServiceNameAzureRM: 'Azure-Service-Connection'
+            env:
+              ARM_CLIENT_ID: $(ARM_CLIENT_ID)
+              ARM_CLIENT_SECRET: $(ARM_CLIENT_SECRET)
+              ARM_SUBSCRIPTION_ID: $(ARM_SUBSCRIPTION_ID)
+              ARM_TENANT_ID: $(ARM_TENANT_ID)
+
+          - task: PublishPipelineArtifact@1
+            displayName: 'Publish Terraform Plan'
+            inputs:
+              targetPath: '$(workingDirectory)/tfplan'
+              artifact: 'tfplan'
+              publishLocation: 'pipeline'
+
+  - stage: Apply
+    displayName: 'Terraform Apply'
+    dependsOn: Plan
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+    jobs:
+      - deployment: Apply
+        displayName: 'Apply Terraform Plan'
+        environment: 'Azure-Production'
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - checkout: self
+
+                - task: TerraformInstaller@0
+                  displayName: 'Install Terraform'
+                  inputs:
+                    terraformVersion: $(terraformVersion)
+
+                - task: DownloadPipelineArtifact@2
+                  displayName: 'Download Terraform Plan'
+                  inputs:
+                    buildType: 'current'
+                    artifactName: 'tfplan'
+                    targetPath: '$(workingDirectory)'
+
+                - task: TerraformTaskV4@4
+                  displayName: 'Terraform Init'
+                  inputs:
+                    provider: 'azurerm'
+                    command: 'init'
+                    workingDirectory: '$(workingDirectory)'
+                    backendServiceArm: 'Azure-Service-Connection'
+                    backendAzureRmResourceGroupName: 'rg-terraform-state'
+                    backendAzureRmStorageAccountName: 'sttfstate$(Build.BuildId)'
+                    backendAzureRmContainerName: 'tfstate'
+                    backendAzureRmKey: 'terraform.tfstate'
+                  env:
+                    ARM_CLIENT_ID: $(ARM_CLIENT_ID)
+                    ARM_CLIENT_SECRET: $(ARM_CLIENT_SECRET)
+                    ARM_SUBSCRIPTION_ID: $(ARM_SUBSCRIPTION_ID)
+                    ARM_TENANT_ID: $(ARM_TENANT_ID)
+
+                - task: TerraformTaskV4@4
+                  displayName: 'Terraform Apply'
+                  inputs:
+                    provider: 'azurerm'
+                    command: 'apply'
+                    workingDirectory: '$(workingDirectory)'
+                    commandOptions: 'tfplan'
+                    environmentServiceNameAzureRM: 'Azure-Service-Connection'
+                  env:
+                    ARM_CLIENT_ID: $(ARM_CLIENT_ID)
+                    ARM_CLIENT_SECRET: $(ARM_CLIENT_SECRET)
+                    ARM_SUBSCRIPTION_ID: $(ARM_SUBSCRIPTION_ID)
+                    ARM_TENANT_ID: $(ARM_TENANT_ID)
+
+  - stage: Destroy
+    displayName: 'Terraform Destroy (Manual)'
+    dependsOn: []
+    condition: false  # Set to manual trigger only
+    jobs:
+      - deployment: Destroy
+        displayName: 'Destroy Infrastructure'
+        environment: 'Azure-Production-Destroy'
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - checkout: self
+
+                - task: TerraformInstaller@0
+                  displayName: 'Install Terraform'
+                  inputs:
+                    terraformVersion: $(terraformVersion)
+
+                - task: TerraformTaskV4@4
+                  displayName: 'Terraform Init'
+                  inputs:
+                    provider: 'azurerm'
+                    command: 'init'
+                    workingDirectory: '$(workingDirectory)'
+                    backendServiceArm: 'Azure-Service-Connection'
+                    backendAzureRmResourceGroupName: 'rg-terraform-state'
+                    backendAzureRmStorageAccountName: 'sttfstate$(Build.BuildId)'
+                    backendAzureRmContainerName: 'tfstate'
+                    backendAzureRmKey: 'terraform.tfstate'
+                  env:
+                    ARM_CLIENT_ID: $(ARM_CLIENT_ID)
+                    ARM_CLIENT_SECRET: $(ARM_CLIENT_SECRET)
+                    ARM_SUBSCRIPTION_ID: $(ARM_SUBSCRIPTION_ID)
+                    ARM_TENANT_ID: $(ARM_TENANT_ID)
+
+                - task: TerraformTaskV4@4
+                  displayName: 'Terraform Destroy'
+                  inputs:
+                    provider: 'azurerm'
+                    command: 'destroy'
+                    workingDirectory: '$(workingDirectory)'
+                    commandOptions: |
+                      -var="subscription_id=$(ARM_SUBSCRIPTION_ID)" \
+                      -var="client_id=$(ARM_CLIENT_ID)" \
+                      -var="client_secret=$(ARM_CLIENT_SECRET)" \
+                      -var="tenant_id=$(ARM_TENANT_ID)" \
+                      -var="admin_password=$(admin_password)" \
+                      -auto-approve
+                    environmentServiceNameAzureRM: 'Azure-Service-Connection'
+                  env:
+                    ARM_CLIENT_ID: $(ARM_CLIENT_ID)
+                    ARM_CLIENT_SECRET: $(ARM_CLIENT_SECRET)
+                    ARM_SUBSCRIPTION_ID: $(ARM_SUBSCRIPTION_ID)
+                    ARM_TENANT_ID: $(ARM_TENANT_ID)
