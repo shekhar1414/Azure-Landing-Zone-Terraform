@@ -97,7 +97,8 @@ resource "azurerm_key_vault" "main" {
   tenant_id                  = data.azurerm_client_config.current.tenant_id
   sku_name                   = "standard"
   soft_delete_retention_days = 7
-  purge_protection_enabled   = false
+  purge_protection_enabled   = true
+  enabled_for_disk_encryption = true
   
   network_acls {
     bypass         = "AzureServices"
@@ -121,6 +122,10 @@ resource "azurerm_key_vault_access_policy" "terraform_sp" {
   secret_permissions = [
     "Get", "List", "Set", "Delete", "Purge", "Recover"
   ]
+  
+  key_permissions = [
+    "Get", "List", "Create", "Delete", "Update", "Recover", "Purge", "GetRotationPolicy"
+  ]
 }
 
 # Store admin password in Key Vault
@@ -129,6 +134,58 @@ resource "azurerm_key_vault_secret" "vm_admin_password" {
   value        = var.admin_password
   key_vault_id = azurerm_key_vault.main.id
   
+  depends_on = [azurerm_key_vault_access_policy.terraform_sp]
+}
+
+# =========================================
+# IDENTITY RG - CMK FOR DISK ENCRYPTION
+# =========================================
+
+# Create Key for Disk Encryption
+resource "azurerm_key_vault_key" "disk_encryption" {
+  name         = "disk-encryption-key"
+  key_vault_id = azurerm_key_vault.main.id
+  key_type     = "RSA"
+  key_size     = 2048
+
+  key_opts = [
+    "decrypt",
+    "encrypt",
+    "sign",
+    "unwrapKey",
+    "verify",
+    "wrapKey",
+  ]
+
+  depends_on = [azurerm_key_vault_access_policy.terraform_sp]
+}
+
+# Create Disk Encryption Set
+resource "azurerm_disk_encryption_set" "main" {
+  name                = "des-${var.environment}-${var.location_short}"
+  location            = azurerm_resource_group.identity.location
+  resource_group_name = azurerm_resource_group.identity.name
+  key_vault_key_id    = azurerm_key_vault_key.disk_encryption.id
+
+  identity {
+    type = "SystemAssigned"
+  }
+
+  tags = var.tags
+}
+
+# Grant Disk Encryption Set access to Key Vault
+resource "azurerm_key_vault_access_policy" "disk_encryption_set" {
+  key_vault_id = azurerm_key_vault.main.id
+  tenant_id    = azurerm_disk_encryption_set.main.identity[0].tenant_id
+  object_id    = azurerm_disk_encryption_set.main.identity[0].principal_id
+
+  key_permissions = [
+    "Get",
+    "WrapKey",
+    "UnwrapKey"
+  ]
+
   depends_on = [azurerm_key_vault_access_policy.terraform_sp]
 }
 
@@ -414,6 +471,25 @@ resource "azurerm_linux_virtual_machine" "backend_dev" {
   }
 }
 
+# Data Disk for Backend Dev VM with CMK
+resource "azurerm_managed_disk" "backend_dev_data" {
+  name                   = "disk-documentcorepack-dev-data"
+  location               = azurerm_resource_group.backend_dev.location
+  resource_group_name    = azurerm_resource_group.backend_dev.name
+  storage_account_type   = "Standard_LRS"
+  create_option          = "Empty"
+  disk_size_gb           = 32
+  disk_encryption_set_id = azurerm_disk_encryption_set.main.id
+  tags                   = var.tags
+}
+
+resource "azurerm_virtual_machine_data_disk_attachment" "backend_dev_data" {
+  managed_disk_id    = azurerm_managed_disk.backend_dev_data.id
+  virtual_machine_id = azurerm_linux_virtual_machine.backend_dev.id
+  lun                = 0
+  caching            = "ReadWrite"
+}
+
 # =========================================
 # BACKEND TEST - VNET AND VM
 # =========================================
@@ -510,6 +586,25 @@ resource "azurerm_linux_virtual_machine" "backend_test" {
   }
 }
 
+# Data Disk for Backend Test VM with CMK
+resource "azurerm_managed_disk" "backend_test_data" {
+  name                   = "disk-documentcorepack-test-data"
+  location               = azurerm_resource_group.backend_test.location
+  resource_group_name    = azurerm_resource_group.backend_test.name
+  storage_account_type   = "Standard_LRS"
+  create_option          = "Empty"
+  disk_size_gb           = 32
+  disk_encryption_set_id = azurerm_disk_encryption_set.main.id
+  tags                   = var.tags
+}
+
+resource "azurerm_virtual_machine_data_disk_attachment" "backend_test_data" {
+  managed_disk_id    = azurerm_managed_disk.backend_test_data.id
+  virtual_machine_id = azurerm_linux_virtual_machine.backend_test.id
+  lun                = 0
+  caching            = "ReadWrite"
+}
+
 # =========================================
 # BACKEND PROD - VNET AND VM
 # =========================================
@@ -604,6 +699,25 @@ resource "azurerm_linux_virtual_machine" "backend_prod" {
   boot_diagnostics {
     storage_account_uri = null
   }
+}
+
+# Data Disk for Backend Prod VM with CMK
+resource "azurerm_managed_disk" "backend_prod_data" {
+  name                   = "disk-documentcorepack-prod-data"
+  location               = azurerm_resource_group.backend_prod.location
+  resource_group_name    = azurerm_resource_group.backend_prod.name
+  storage_account_type   = "Standard_LRS"
+  create_option          = "Empty"
+  disk_size_gb           = 32
+  disk_encryption_set_id = azurerm_disk_encryption_set.main.id
+  tags                   = var.tags
+}
+
+resource "azurerm_virtual_machine_data_disk_attachment" "backend_prod_data" {
+  managed_disk_id    = azurerm_managed_disk.backend_prod_data.id
+  virtual_machine_id = azurerm_linux_virtual_machine.backend_prod.id
+  lun                = 0
+  caching            = "ReadWrite"
 }
 
 # =========================================
@@ -707,6 +821,25 @@ resource "azurerm_linux_virtual_machine" "listserv" {
   boot_diagnostics {
     storage_account_uri = null
   }
+}
+
+# Data Disk for LISTSERV VM with CMK
+resource "azurerm_managed_disk" "listserv_data" {
+  name                   = "disk-listserv-data"
+  location               = azurerm_resource_group.public_services.location
+  resource_group_name    = azurerm_resource_group.public_services.name
+  storage_account_type   = "Standard_LRS"
+  create_option          = "Empty"
+  disk_size_gb           = 32
+  disk_encryption_set_id = azurerm_disk_encryption_set.main.id
+  tags                   = var.tags
+}
+
+resource "azurerm_virtual_machine_data_disk_attachment" "listserv_data" {
+  managed_disk_id    = azurerm_managed_disk.listserv_data.id
+  virtual_machine_id = azurerm_linux_virtual_machine.listserv.id
+  lun                = 0
+  caching            = "ReadWrite"
 }
 
 # =========================================

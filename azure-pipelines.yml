@@ -9,10 +9,10 @@ trigger:
       - 'azure-pipelines.yml'
 
 pool:
-  vmImage: 'ubuntu-latest'
+  name: 'Default'
 
 variables:
-  - group: ACC-23377-AZURE-NPRD-AICAP
+  - group: shekhar1414-azure-landing-zone-vars
   - name: terraformVersion
     value: '1.6.5'
   - name: workingDirectory
@@ -36,7 +36,7 @@ stages:
               provider: 'azurerm'
               command: 'init'
               workingDirectory: '$(workingDirectory)'
-              backendServiceArm: 'Azure-Service-Connection'
+              backendServiceArm: 'shekhar1414-azure-service-connection'
               backendAzureRmResourceGroupName: 'rg-terraform-state'
               backendAzureRmStorageAccountName: 'sttfstate$(Build.BuildId)'
               backendAzureRmContainerName: 'tfstate'
@@ -83,7 +83,7 @@ stages:
               provider: 'azurerm'
               command: 'init'
               workingDirectory: '$(workingDirectory)'
-              backendServiceArm: 'Azure-Service-Connection'
+              backendServiceArm: 'shekhar1414-azure-service-connection'
               backendAzureRmResourceGroupName: 'rg-terraform-state'
               backendAzureRmStorageAccountName: 'sttfstate$(Build.BuildId)'
               backendAzureRmContainerName: 'tfstate'
@@ -107,7 +107,7 @@ stages:
                 -var="tenant_id=$(ARM_TENANT_ID)" \
                 -var="admin_password=$(admin_password)" \
                 -out=tfplan
-              environmentServiceNameAzureRM: 'Azure-Service-Connection'
+              environmentServiceNameAzureRM: 'shekhar1414-azure-service-connection'
             env:
               ARM_CLIENT_ID: $(ARM_CLIENT_ID)
               ARM_CLIENT_SECRET: $(ARM_CLIENT_SECRET)
@@ -153,7 +153,7 @@ stages:
                     provider: 'azurerm'
                     command: 'init'
                     workingDirectory: '$(workingDirectory)'
-                    backendServiceArm: 'Azure-Service-Connection'
+                    backendServiceArm: 'shekhar1414-azure-service-connection'
                     backendAzureRmResourceGroupName: 'rg-terraform-state'
                     backendAzureRmStorageAccountName: 'sttfstate$(Build.BuildId)'
                     backendAzureRmContainerName: 'tfstate'
@@ -171,7 +171,7 @@ stages:
                     command: 'apply'
                     workingDirectory: '$(workingDirectory)'
                     commandOptions: 'tfplan'
-                    environmentServiceNameAzureRM: 'Azure-Service-Connection'
+                    environmentServiceNameAzureRM: 'shekhar1414-azure-service-connection'
                   env:
                     ARM_CLIENT_ID: $(ARM_CLIENT_ID)
                     ARM_CLIENT_SECRET: $(ARM_CLIENT_SECRET)
@@ -203,7 +203,7 @@ stages:
                     provider: 'azurerm'
                     command: 'init'
                     workingDirectory: '$(workingDirectory)'
-                    backendServiceArm: 'Azure-Service-Connection'
+                    backendServiceArm: 'shekhar1414-azure-service-connection'
                     backendAzureRmResourceGroupName: 'rg-terraform-state'
                     backendAzureRmStorageAccountName: 'sttfstate$(Build.BuildId)'
                     backendAzureRmContainerName: 'tfstate'
@@ -227,7 +227,7 @@ stages:
                       -var="tenant_id=$(ARM_TENANT_ID)" \
                       -var="admin_password=$(admin_password)" \
                       -auto-approve
-                    environmentServiceNameAzureRM: 'Azure-Service-Connection'
+                    environmentServiceNameAzureRM: 'shekhar1414-azure-service-connection'
                   env:
                     ARM_CLIENT_ID: $(ARM_CLIENT_ID)
                     ARM_CLIENT_SECRET: $(ARM_CLIENT_SECRET)

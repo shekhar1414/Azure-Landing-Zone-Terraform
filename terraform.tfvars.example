@@ -30,8 +30,9 @@ vm_admin_username = "azureuser"
 # =========================================
 
 tags = {
-  Project     = "ACC-23377-AZURE-NPRD-AICAP"
+  Project     = "Azure-Landing-Zone"
+  Owner       = "shekhar1414"
   ManagedBy   = "Terraform"
   Environment = "Non-Production"
-  DeployedBy  = "AzureDevOps"
+  Repository  = "github.com/shekhar1414/Azure-Landing-Zone-Terraform"
 }

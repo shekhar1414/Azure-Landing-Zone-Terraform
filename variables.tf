@@ -52,9 +52,11 @@ variable "tags" {
   description = "Common tags for all resources"
   type        = map(string)
   default = {
-    Project     = "ACC-23377-AZURE-NPRD-AICAP"
+    Project     = "Azure-Landing-Zone"
+    Owner       = "shekhar1414"
     ManagedBy   = "Terraform"
     Environment = "Non-Production"
+    Repository  = "github.com/shekhar1414/Azure-Landing-Zone-Terraform"
   }
 }
 

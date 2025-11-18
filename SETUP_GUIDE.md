@@ -61,7 +61,7 @@ Write-Host "Storage Account Name: $storageAccountName" -ForegroundColor Green
 
 1. Navigate to: **Pipelines** → **Library** → **+ Variable group**
 
-2. Name: `ACC-23377-AZURE-NPRD-AICAP`
+2. Name: `shekhar1414-azure-landing-zone-vars`
 
 3. Add variables:
 
@@ -87,7 +87,7 @@ az devops configure --defaults organization=https://dev.azure.com/<your-org> pro
 
 # Create variable group
 az pipelines variable-group create `
-  --name "ACC-23377-AZURE-NPRD-AICAP" `
+  --name "shekhar1414-azure-landing-zone-vars" `
   --variables `
     ARM_CLIENT_ID=your-service-principal-client-id `
     ARM_TENANT_ID=your-azure-tenant-id `
@@ -122,7 +122,7 @@ az pipelines variable-group variable create `
    - **Service Principal Key**: your-service-principal-secret
    - **Tenant ID**: your-azure-tenant-id
 
-5. **Service connection name**: `Azure-Service-Connection`
+5. **Service connection name**: `shekhar1414-azure-service-connection`
 
 6. Check "Grant access permission to all pipelines"
 
@@ -250,7 +250,7 @@ az role assignment list --scope /subscriptions/your-azure-subscription-id/resour
 
 **Solution**: Verify variable group name and pipeline access:
 ```powershell
-az pipelines variable-group list --query "[?name=='ACC-23377-AZURE-NPRD-AICAP']"
+az pipelines variable-group list --query "[?name=='shekhar1414-azure-landing-zone-vars']"
 ```
 
 ### Issue: Service connection fails

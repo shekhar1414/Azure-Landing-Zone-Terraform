@@ -110,6 +110,40 @@ output "recovery_services_vault_name" {
 }
 
 # =========================================
+# DISK ENCRYPTION OUTPUTS
+# =========================================
+
+output "disk_encryption_set_id" {
+  description = "ID of the Disk Encryption Set"
+  value       = azurerm_disk_encryption_set.main.id
+}
+
+output "disk_encryption_key_id" {
+  description = "ID of the Disk Encryption Key in Key Vault"
+  value       = azurerm_key_vault_key.disk_encryption.id
+}
+
+output "backend_dev_data_disk_id" {
+  description = "ID of Backend Dev data disk"
+  value       = azurerm_managed_disk.backend_dev_data.id
+}
+
+output "backend_test_data_disk_id" {
+  description = "ID of Backend Test data disk"
+  value       = azurerm_managed_disk.backend_test_data.id
+}
+
+output "backend_prod_data_disk_id" {
+  description = "ID of Backend Prod data disk"
+  value       = azurerm_managed_disk.backend_prod_data.id
+}
+
+output "listserv_data_disk_id" {
+  description = "ID of LISTSERV data disk"
+  value       = azurerm_managed_disk.listserv_data.id
+}
+
+# =========================================
 # CONTAINER APP OUTPUTS
 # =========================================
 

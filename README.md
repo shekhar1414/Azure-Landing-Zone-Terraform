@@ -129,7 +129,9 @@ Spoke VNets (peered to hub):
 - 📊 **Recovery Services Vault**: Backup and disaster recovery
 
 ### Infrastructure
-- 🖥️ **Linux VMs**: Ubuntu 22.04 LTS (Standard_B2pts_v2)
+- 🖥️ **Linux VMs**: Ubuntu 22.04 LTS (Standard_B2pts_v2) - Free tier eligible for Azure Student accounts
+- 🖥️ **Managed Data Disks**: 32GB data disks attached to all VMs with CMK encryption
+- 🖥️ **Customer Managed Keys**: Disk encryption keys stored in Key Vault
 - 🖥️ **Container Apps**: 1Password SCIM bridge deployment
 - 🖥️ **Multi-Environment**: Dev, Test, Prod, and Public Services landing zones
 
@@ -138,7 +140,7 @@ Spoke VNets (peered to hub):
 ### Resource Groups
 | Resource Group | Purpose | Key Resources |
 |----------------|---------|---------------|
-| **rg-identity-nprd-cin** | Identity & Security | Key Vault, Log Analytics, Recovery Vault, Network Watcher |
+| **rg-identity-nprd-cin** | Identity & Security | Key Vault (with CMK), Disk Encryption Set, Log Analytics, Recovery Vault, Network Watcher |
 | **rg-connectivity-nprd-cin** | Hub Network | VNet Hub, Azure Firewall, Azure Bastion |
 | **rg-backend-dev-nprd-cin** | Development Landing Zone | VNet, Linux VM (DocumentCorePack), NSG, Route Table |
 | **rg-backend-test-nprd-cin** | Test Landing Zone | VNet, Linux VM (DocumentCorePack), NSG, Route Table |
@@ -146,12 +148,14 @@ Spoke VNets (peered to hub):
 | **rg-publicservices-nprd-cin** | Public Services | VNet, LISTSERV VM, Container App, 1Password SCIM |
 
 ### Virtual Machines
-| VM Name | Resource Group | Size | OS | Purpose |
-|---------|----------------|------|----|---------| 
-| vm-documentcorepack-dev | rg-backend-dev | Standard_B2pts_v2 | Ubuntu 22.04 | Development environment |
-| vm-documentcorepack-test | rg-backend-test | Standard_B2pts_v2 | Ubuntu 22.04 | Test environment |
-| vm-documentcorepack-prod | rg-backend-prod | Standard_B2pts_v2 | Ubuntu 22.04 | Production environment |
-| vm-listserv | rg-publicservices | Standard_B2pts_v2 | Ubuntu 22.04 | Email list management |
+| VM Name | Resource Group | Size | OS | Data Disk | Purpose |
+|---------|----------------|------|----|-----------|---------| 
+| vm-documentcorepack-dev | rg-backend-dev | Standard_B2pts_v2 | Ubuntu 22.04 | 32GB (CMK) | Development environment |
+| vm-documentcorepack-test | rg-backend-test | Standard_B2pts_v2 | Ubuntu 22.04 | 32GB (CMK) | Test environment |
+| vm-documentcorepack-prod | rg-backend-prod | Standard_B2pts_v2 | Ubuntu 22.04 | 32GB (CMK) | Production environment |
+| vm-listserv | rg-publicservices | Standard_B2pts_v2 | Ubuntu 22.04 | 32GB (CMK) | Email list management |
+
+**Note:** All VMs use Standard_B2pts_v2 which is available in Azure Student subscription free tier. Data disks are encrypted with Customer Managed Keys (CMK) stored in Azure Key Vault.
 
 ### Network Address Spaces
 | Network | CIDR | Purpose |
@@ -222,7 +226,7 @@ Save the output (clientId, clientSecret, tenantId) for later use.
 #### Create Variable Group
 
 1. Navigate to Azure DevOps → Pipelines → Library
-2. Create a variable group named: `ACC-23377-AZURE-NPRD-AICAP`
+2. Create a variable group named: `shekhar1414-azure-landing-zone-vars`
 3. Add the following variables:
 
 | Variable | Value | Secret? |
@@ -327,7 +331,9 @@ terraform apply tfplan
 
 ### Access Control
 
-- **Key Vault**: Stores VM admin passwords securely
+- **Key Vault**: Stores VM admin passwords and disk encryption keys securely
+- **Customer Managed Keys (CMK)**: All data disks encrypted with keys from Key Vault
+- **Disk Encryption Set**: Centralized encryption management for all managed disks
 - **Service Principal**: Limited to Contributor role
 - **RBAC**: Role-based access control for all resources
 
@@ -340,6 +346,28 @@ terraform apply tfplan
 **Application Rules:**
 - Allow HTTP (port 80) to internet
 - Allow HTTPS (port 443) to internet
+
+### Data Disk Encryption
+
+All VMs have 32GB managed data disks encrypted with Customer Managed Keys (CMK):
+
+**Architecture:**
+- **Encryption Keys**: Stored in Azure Key Vault (Identity RG)
+- **Disk Encryption Set**: Manages encryption for all disks
+- **Key Rotation**: Supports automatic key rotation
+- **Compliance**: Meets enterprise security and compliance requirements
+
+**Key Features:**
+- 2048-bit RSA encryption keys
+- Purge protection enabled on Key Vault
+- System-assigned managed identity for Disk Encryption Set
+- Automatic key access management
+
+**Connectivity:**
+All resource groups have network connectivity to Key Vault in Identity RG through:
+- VNet peering (hub-spoke topology)
+- Azure backbone network for Key Vault access
+- No public internet required for encryption operations
 
 ### Secure VM Access
 
@@ -615,8 +643,9 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 👥 Authors
 
-- **Platform Engineering Team**
-- Project: ACC-23377-AZURE-NPRD-AICAP
+- **shekhar1414** - Platform Engineering Team
+- GitHub: [shekhar1414](https://github.com/shekhar1414)
+- Project: Azure Landing Zone Infrastructure
 
 ## 🔖 Version History
 
